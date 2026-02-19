@@ -23,6 +23,7 @@ import {
   query,
   where
 } from "firebase/firestore";
+
 import { db } from "../firebase";
 import TimeEntryModal from "../components/TimeEntryModal";
 import dayjs from "dayjs";
@@ -33,7 +34,6 @@ const { Option } = Select;
 
 const Dashboard = ({ user }) => {
   const [data, setData] = useState([]);
-  const [filteredData, setFilteredData] = useState([]);
   const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -41,12 +41,7 @@ const Dashboard = ({ user }) => {
   const [editingEntry, setEditingEntry] = useState(null);
   const [dateRange, setDateRange] = useState(null);
   const [openBulkModal, setOpenBulkModal] = useState(false);
-
-  // ✅ Professional Pagination State
-  const [pagination, setPagination] = useState({
-    current: 1,
-    pageSize: 6
-  });
+  const [groupBy, setGroupBy] = useState(null);
 
   /* =========================
      FETCH PROJECTS & TASKS
@@ -54,18 +49,16 @@ const Dashboard = ({ user }) => {
 
   const fetchDropdownData = async () => {
     const projectSnap = await getDocs(collection(db, "projects"));
-    const projectList = projectSnap.docs.map(doc => ({
+    setProjects(projectSnap.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    }));
-    setProjects(projectList);
+    })));
 
     const taskSnap = await getDocs(collection(db, "tasks"));
-    const taskList = taskSnap.docs.map(doc => ({
+    setTasks(taskSnap.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    }));
-    setTasks(taskList);
+    })));
   };
 
   /* =========================
@@ -85,21 +78,17 @@ const Dashboard = ({ user }) => {
 
       const snapshot = await getDocs(q);
 
-      const list = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      // ✅ newest first
+      const list = snapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))
+        .sort((a, b) => dayjs(b.date).unix() - dayjs(a.date).unix());
 
       setData(list);
-      setFilteredData(list);
 
-      // Reset to first page after reload
-      setPagination(prev => ({
-        ...prev,
-        current: 1
-      }));
-
-    } catch (error) {
+    } catch {
       message.error("Failed to fetch data");
     } finally {
       setLoading(false);
@@ -115,36 +104,56 @@ const Dashboard = ({ user }) => {
      DATE FILTER
   ========================= */
 
-  const filterByDate = (sourceData, range) => {
-    if (!range || range.length !== 2) {
-      setFilteredData(sourceData);
-      return;
-    }
+  const filteredData = dateRange
+    ? data.filter(item => {
+        const itemDate = dayjs(item.date);
+        return (
+          itemDate.isSame(dateRange[0], "day") ||
+          itemDate.isSame(dateRange[1], "day") ||
+          (itemDate.isAfter(dateRange[0]) &&
+            itemDate.isBefore(dateRange[1]))
+        );
+      })
+    : data;
 
-    const [start, end] = range;
+  /* =========================
+     HELPERS
+  ========================= */
 
-    const filtered = sourceData.filter((item) => {
-      const itemDate = dayjs(item.date);
-      return (
-        itemDate.isSame(start, "day") ||
-        itemDate.isSame(end, "day") ||
-        (itemDate.isAfter(start) && itemDate.isBefore(end))
-      );
-    });
-
-    setFilteredData(filtered);
-
-    // Reset page after filtering
-    setPagination(prev => ({
-      ...prev,
-      current: 1
-    }));
+  const getProjectName = (projectId) => {
+    const project = projects.find(p => p.id === projectId);
+    return project ? project.name : "";
   };
 
-  const handleDateChange = (range) => {
-    setDateRange(range);
-    filterByDate(data, range);
+  const getTaskName = (taskId) => {
+    const task = tasks.find(t => t.id === taskId);
+    return task ? task.name : "";
   };
+
+  /* =========================
+     GROUP BY (Sorting only)
+  ========================= */
+
+  const processedData = groupBy
+    ? [...filteredData].sort((a, b) => {
+        if (groupBy === "project") {
+          return getProjectName(a.projectId)
+            .localeCompare(getProjectName(b.projectId));
+        }
+        if (groupBy === "date") {
+          return dayjs(a.date).unix() - dayjs(b.date).unix();
+        }
+        return 0;
+      })
+    : filteredData;
+
+  /* =========================
+     UNIQUE TASKS (for filter)
+  ========================= */
+
+  const uniqueTasks = [
+    ...new Set(processedData.map(d => getTaskName(d.taskId)))
+  ];
 
   /* =========================
      DELETE
@@ -160,36 +169,14 @@ const Dashboard = ({ user }) => {
     }
   };
 
-  /* =========================
-     EDIT
-  ========================= */
-
   const handleEdit = (record) => {
     setEditingEntry(record);
     setOpenModal(true);
   };
 
   /* =========================
-     HELPER FUNCTIONS
-  ========================= */
-
-  const getProjectName = (projectId) => {
-    const project = projects.find(p => p.id === projectId);
-    return project ? project.name : "";
-  };
-
-  const getTaskName = (taskId) => {
-    const task = tasks.find(t => t.id === taskId);
-    return task ? task.name : "";
-  };
-
-  /* =========================
      TABLE COLUMNS
   ========================= */
-
-  const uniqueTasks = [
-    ...new Set(filteredData.map(d => getTaskName(d.taskId)))
-  ];
 
   const columns = [
     {
@@ -208,7 +195,7 @@ const Dashboard = ({ user }) => {
     {
       title: "Task",
       render: (_, record) => getTaskName(record.taskId),
-      filters: uniqueTasks.map((task) => ({
+      filters: uniqueTasks.map(task => ({
         text: task,
         value: task
       })),
@@ -224,7 +211,10 @@ const Dashboard = ({ user }) => {
         return `${hours}h ${minutes}m`;
       }
     },
-    { title: "Description", dataIndex: "description" },
+    {
+      title: "Description",
+      dataIndex: "description"
+    },
     {
       title: "Status",
       render: () => (
@@ -244,8 +234,14 @@ const Dashboard = ({ user }) => {
           <CheckOutlined className="billable-icon" />
         ) : null
     },
-    { title: "Type", dataIndex: "type" },
-    { title: "Ticket", dataIndex: "ticket" },
+    {
+      title: "Type",
+      dataIndex: "type"
+    },
+    {
+      title: "Ticket",
+      dataIndex: "ticket"
+    },
     {
       title: "Action",
       render: (_, record) => (
@@ -262,18 +258,13 @@ const Dashboard = ({ user }) => {
     }
   ];
 
-  /* =========================
-     UI
-  ========================= */
-
   return (
     <div className="dashboard-container">
 
       <div className="dashboard-toolbar">
-
         <RangePicker
           value={dateRange}
-          onChange={handleDateChange}
+          onChange={(range) => setDateRange(range)}
           allowClear
         />
 
@@ -288,6 +279,8 @@ const Dashboard = ({ user }) => {
           <Select
             placeholder="Group by"
             style={{ width: 150 }}
+            onChange={(value) => setGroupBy(value)}
+            allowClear
           >
             <Option value="project">Project</Option>
             <Option value="date">Date</Option>
@@ -306,29 +299,19 @@ const Dashboard = ({ user }) => {
         </Space>
       </div>
 
+      {/* ✅ Professional Table with Filters + Pagination */}
       <Table
-  columns={columns}
-  dataSource={filteredData}
-  loading={loading}
-  rowKey="id"
-  pagination={{
-    showSizeChanger: true,
-    pageSizeOptions: ["6", "10", "20", "50"],
-    showTotal: (total) => `Total ${total} entries`,
-    showQuickJumper: false,
-    showLessItems: false,
-    hideOnSinglePage: true,
-    showPrevNextJumpers: false,
-    showTitle: false,
-    showSizeChanger: true,
-    itemRender: () => null   // 🔥 THIS removes page numbers & arrows
-  }}
-  locale={{
-    emptyText:
-      "No time entries found for selected date range"
-  }}
-/>
-
+        columns={columns}
+        dataSource={processedData}
+        loading={loading}
+        rowKey="id"
+        pagination={{
+          pageSize: 10,
+          showSizeChanger: true,
+          pageSizeOptions: ["5", "10", "20", "50"],
+          position: ["bottomCenter"]
+        }}
+      />
 
       <TimeEntryModal
         open={openModal}
