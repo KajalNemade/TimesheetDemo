@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Table,
   Button,
@@ -6,7 +6,9 @@ import {
   DatePicker,
   Select,
   message,
-  Popconfirm
+  Popconfirm,
+  Empty,
+  Spin
 } from "antd";
 import {
   PlusOutlined,
@@ -18,10 +20,11 @@ import {
 import {
   collection,
   getDocs,
-  deleteDoc,
+  updateDoc,          // ✅ UPDATED
   doc,
   query,
-  where
+  where,
+  serverTimestamp     // ✅ ADDED
 } from "firebase/firestore";
 
 import { db } from "../firebase";
@@ -37,6 +40,7 @@ const Dashboard = ({ user }) => {
   const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [openModal, setOpenModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [dateRange, setDateRange] = useState(null);
@@ -49,23 +53,27 @@ const Dashboard = ({ user }) => {
 
   const fetchDropdownData = async () => {
     const projectSnap = await getDocs(collection(db, "projects"));
-    setProjects(projectSnap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })));
+    setProjects(
+      projectSnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+    );
 
     const taskSnap = await getDocs(collection(db, "tasks"));
-    setTasks(taskSnap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })));
+    setTasks(
+      taskSnap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+    );
   };
 
   /* =========================
      FETCH TIME ENTRIES
   ========================= */
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -73,12 +81,12 @@ const Dashboard = ({ user }) => {
 
       const q = query(
         collection(db, "timeEntries"),
-        where("userId", "==", user.uid)
+        where("userId", "==", user.uid),
+        where("deleted", "==", false)   // ✅ SOFT DELETE FILTER
       );
 
       const snapshot = await getDocs(q);
 
-      // ✅ newest first
       const list = snapshot.docs
         .map(doc => ({
           id: doc.id,
@@ -87,18 +95,26 @@ const Dashboard = ({ user }) => {
         .sort((a, b) => dayjs(b.date).unix() - dayjs(a.date).unix());
 
       setData(list);
-
     } catch {
       message.error("Failed to fetch data");
     } finally {
       setLoading(false);
+      setInitialLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
-    fetchDropdownData();
-    fetchData();
-  }, [user]);
+    const loadAllData = async () => {
+      try {
+        await fetchDropdownData();
+        await fetchData();
+      } finally {
+        setInitialLoading(false);
+      }
+    };
+
+    loadAllData();
+  }, [fetchData]);
 
   /* =========================
      DATE FILTER
@@ -131,7 +147,7 @@ const Dashboard = ({ user }) => {
   };
 
   /* =========================
-     GROUP BY (Sorting only)
+     GROUPING
   ========================= */
 
   const processedData = groupBy
@@ -147,21 +163,21 @@ const Dashboard = ({ user }) => {
       })
     : filteredData;
 
-  /* =========================
-     UNIQUE TASKS (for filter)
-  ========================= */
-
   const uniqueTasks = [
     ...new Set(processedData.map(d => getTaskName(d.taskId)))
   ];
 
   /* =========================
-     DELETE
+     SOFT DELETE
   ========================= */
 
   const handleDelete = async (id) => {
     try {
-      await deleteDoc(doc(db, "timeEntries", id));
+      await updateDoc(doc(db, "timeEntries", id), {
+        deleted: true,
+        deletedAt: serverTimestamp()
+      });
+
       message.success("Deleted successfully");
       fetchData();
     } catch {
@@ -186,11 +202,7 @@ const Dashboard = ({ user }) => {
     },
     {
       title: "Project",
-      render: (_, record) => getProjectName(record.projectId),
-      sorter: (a, b) =>
-        getProjectName(a.projectId).localeCompare(
-          getProjectName(b.projectId)
-        )
+      render: (_, record) => getProjectName(record.projectId)
     },
     {
       title: "Task",
@@ -223,12 +235,6 @@ const Dashboard = ({ user }) => {
     },
     {
       title: "Billable",
-      filters: [
-        { text: "Yes", value: true },
-        { text: "No", value: false }
-      ],
-      onFilter: (value, record) =>
-        record.billable === value,
       render: (_, record) =>
         record.billable ? (
           <CheckOutlined className="billable-icon" />
@@ -258,77 +264,85 @@ const Dashboard = ({ user }) => {
     }
   ];
 
-  return (
-    <div className="dashboard-container">
+  /* =========================
+     UI
+  ========================= */
 
-      <div className="dashboard-toolbar">
-        <RangePicker
-          value={dateRange}
-          onChange={(range) => setDateRange(range)}
-          allowClear
+  return (
+    <Spin spinning={initialLoading} size="large">
+      <div className="dashboard-container">
+
+        <div className="dashboard-toolbar">
+          <RangePicker
+            value={dateRange}
+            onChange={(range) => setDateRange(range)}
+            allowClear
+          />
+
+          <Space size="middle">
+            <Button
+              icon={<CalendarOutlined />}
+              onClick={() => setOpenBulkModal(true)}
+            >
+              Bulk Time Entry
+            </Button>
+
+            <Select
+              placeholder="Group by"
+              style={{ width: 150 }}
+              onChange={(value) => setGroupBy(value)}
+              allowClear
+            >
+              <Option value="project">Project</Option>
+              <Option value="date">Date</Option>
+            </Select>
+
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setEditingEntry(null);
+                setOpenModal(true);
+              }}
+            >
+              Time Entry
+            </Button>
+          </Space>
+        </div>
+
+        <Table
+          columns={columns}
+          dataSource={processedData}
+          loading={!initialLoading && loading}
+          rowKey="id"
+          locale={{
+            emptyText: <Empty description="No time entries found" />
+          }}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            pageSizeOptions: ["5", "10", "20", "50"],
+            position: ["bottomCenter"]
+          }}
         />
 
-        <Space size="middle">
-          <Button
-            icon={<CalendarOutlined />}
-            onClick={() => setOpenBulkModal(true)}
-          >
-            Bulk Time Entry
-          </Button>
+        <TimeEntryModal
+          open={openModal}
+          setOpen={setOpenModal}
+          user={user}
+          editingEntry={editingEntry}
+          onSuccess={fetchData}
+        />
 
-          <Select
-            placeholder="Group by"
-            style={{ width: 150 }}
-            onChange={(value) => setGroupBy(value)}
-            allowClear
-          >
-            <Option value="project">Project</Option>
-            <Option value="date">Date</Option>
-          </Select>
+        <BulkTimeEntryModal
+          open={openBulkModal}
+          setOpen={setOpenBulkModal}
+          user={user}
+          onSuccess={fetchData}
+        />
 
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setEditingEntry(null);
-              setOpenModal(true);
-            }}
-          >
-            Time Entry
-          </Button>
-        </Space>
       </div>
-
-      {/* ✅ Professional Table with Filters + Pagination */}
-      <Table
-        columns={columns}
-        dataSource={processedData}
-        loading={loading}
-        rowKey="id"
-        pagination={{
-          pageSize: 10,
-          showSizeChanger: true,
-          pageSizeOptions: ["5", "10", "20", "50"],
-          position: ["bottomCenter"]
-        }}
-      />
-
-      <TimeEntryModal
-        open={openModal}
-        setOpen={setOpenModal}
-        user={user}
-        editingEntry={editingEntry}
-        onSuccess={fetchData}
-      />
-
-      <BulkTimeEntryModal
-        open={openBulkModal}
-        setOpen={setOpenBulkModal}
-        user={user}
-        onSuccess={fetchData}
-      />
-
-    </div>
+    </Spin>
   );
 };
 
