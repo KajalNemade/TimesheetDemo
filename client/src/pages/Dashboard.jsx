@@ -6,8 +6,7 @@ import {
   DatePicker,
   Select,
   message,
-  Popconfirm,
-  Empty
+  Popconfirm
 } from "antd";
 import {
   PlusOutlined,
@@ -42,6 +41,12 @@ const Dashboard = ({ user }) => {
   const [editingEntry, setEditingEntry] = useState(null);
   const [dateRange, setDateRange] = useState(null);
   const [openBulkModal, setOpenBulkModal] = useState(false);
+
+  // ✅ Professional Pagination State
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 6
+  });
 
   /* =========================
      FETCH PROJECTS & TASKS
@@ -88,6 +93,12 @@ const Dashboard = ({ user }) => {
       setData(list);
       setFilteredData(list);
 
+      // Reset to first page after reload
+      setPagination(prev => ({
+        ...prev,
+        current: 1
+      }));
+
     } catch (error) {
       message.error("Failed to fetch data");
     } finally {
@@ -122,6 +133,12 @@ const Dashboard = ({ user }) => {
     });
 
     setFilteredData(filtered);
+
+    // Reset page after filtering
+    setPagination(prev => ({
+      ...prev,
+      current: 1
+    }));
   };
 
   const handleDateChange = (range) => {
@@ -207,10 +224,7 @@ const Dashboard = ({ user }) => {
         return `${hours}h ${minutes}m`;
       }
     },
-    {
-      title: "Description",
-      dataIndex: "description"
-    },
+    { title: "Description", dataIndex: "description" },
     {
       title: "Status",
       render: () => (
@@ -230,14 +244,8 @@ const Dashboard = ({ user }) => {
           <CheckOutlined className="billable-icon" />
         ) : null
     },
-    {
-      title: "Type",
-      dataIndex: "type"
-    },
-    {
-      title: "Ticket",
-      dataIndex: "ticket"
-    },
+    { title: "Type", dataIndex: "type" },
+    { title: "Ticket", dataIndex: "ticket" },
     {
       title: "Action",
       render: (_, record) => (
@@ -270,7 +278,6 @@ const Dashboard = ({ user }) => {
         />
 
         <Space size="middle">
-
           <Button
             icon={<CalendarOutlined />}
             onClick={() => setOpenBulkModal(true)}
@@ -293,28 +300,35 @@ const Dashboard = ({ user }) => {
               setEditingEntry(null);
               setOpenModal(true);
             }}
-            style={{
-              backgroundColor: "#1677ff",
-              borderColor: "#1677ff"
-            }}
           >
             Time Entry
           </Button>
-
         </Space>
       </div>
 
       <Table
-        columns={columns}
-        dataSource={filteredData}
-        loading={loading}
-        rowKey="id"
-        pagination={{ pageSize: 6 }}
-        locale={{
-          emptyText:
-            "No time entries found for selected date range"
-        }}
-      />
+  columns={columns}
+  dataSource={filteredData}
+  loading={loading}
+  rowKey="id"
+  pagination={{
+    showSizeChanger: true,
+    pageSizeOptions: ["6", "10", "20", "50"],
+    showTotal: (total) => `Total ${total} entries`,
+    showQuickJumper: false,
+    showLessItems: false,
+    hideOnSinglePage: true,
+    showPrevNextJumpers: false,
+    showTitle: false,
+    showSizeChanger: true,
+    itemRender: () => null   // 🔥 THIS removes page numbers & arrows
+  }}
+  locale={{
+    emptyText:
+      "No time entries found for selected date range"
+  }}
+/>
+
 
       <TimeEntryModal
         open={openModal}

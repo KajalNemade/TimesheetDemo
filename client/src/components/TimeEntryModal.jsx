@@ -36,47 +36,50 @@ const TimeEntryModal = ({
 }) => {
   const [form] = Form.useForm();
 
-  // 🔥 NEW STATES
   const [projects, setProjects] = useState([]);
   const [tasks, setTasks] = useState([]);
-  const [selectedProject, setSelectedProject] = useState(null);
 
   /* =========================
      FETCH PROJECTS & TASKS
   ========================= */
 
   useEffect(() => {
-    const fetchDropdownData = async () => {
-      const projectSnap = await getDocs(collection(db, "projects"));
-      const projectList = projectSnap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setProjects(projectList);
+    if (!open) return;
 
-      const taskSnap = await getDocs(collection(db, "tasks"));
-      const taskList = taskSnap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setTasks(taskList);
+    const fetchDropdownData = async () => {
+      try {
+        const projectSnap = await getDocs(collection(db, "projects"));
+        const projectList = projectSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setProjects(projectList);
+
+        const taskSnap = await getDocs(collection(db, "tasks"));
+        const taskList = taskSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setTasks(taskList);
+      } catch (error) {
+        console.error("Dropdown fetch error:", error);
+      }
     };
 
     fetchDropdownData();
-  }, []);
+  }, [open]);
 
   /* =========================
      PREFILL DATA FOR EDIT
   ========================= */
 
   useEffect(() => {
-    if (editingEntry) {
-      setSelectedProject(editingEntry.projectId);
-
+    if (editingEntry && open) {
       form.setFieldsValue({
-        ...editingEntry,
         project: editingEntry.projectId,
         task: editingEntry.taskId,
+        type: editingEntry.type,
+        ticket: editingEntry.ticket,
         date: editingEntry.date
           ? dayjs(editingEntry.date)
           : null,
@@ -84,13 +87,14 @@ const TimeEntryModal = ({
           ? dayjs()
               .hour(Math.floor(editingEntry.totalMinutes / 60))
               .minute(editingEntry.totalMinutes % 60)
-          : null
+          : null,
+        description: editingEntry.description,
+        billable: editingEntry.billable
       });
-    } else {
+    } else if (!editingEntry && open) {
       form.resetFields();
-      setSelectedProject(null);
     }
-  }, [editingEntry, form]);
+  }, [editingEntry, open, form]);
 
   /* =========================
      CONFIRM CLOSE
@@ -136,8 +140,8 @@ const TimeEntryModal = ({
 
       const payload = {
         userId: user.uid,
-        projectId: values.project,   // 🔥 SAVE ID
-        taskId: values.task,         // 🔥 SAVE ID
+        projectId: values.project,
+        taskId: values.task,
         type: values.type || "",
         ticket: values.ticket || "",
         date: values.date.format("YYYY-MM-DD"),
@@ -167,7 +171,6 @@ const TimeEntryModal = ({
       form.resetFields();
       setOpen(false);
       onSuccess();
-
     } catch (error) {
       message.error(error.message);
     }
@@ -194,23 +197,13 @@ const TimeEntryModal = ({
           paddingBottom: 16
         }}
       >
-        <h2
-          style={{
-            margin: 0,
-            fontSize: 22,
-            fontWeight: 600
-          }}
-        >
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600 }}>
           {editingEntry ? "Edit Time Entry" : "Time Entry"}
         </h2>
       </div>
 
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={onFinish}
-        requiredMark
-      >
+      <Form form={form} layout="vertical" onFinish={onFinish} requiredMark>
+
         {/* PROJECT */}
         <Form.Item
           label="Project"
@@ -220,10 +213,7 @@ const TimeEntryModal = ({
           <Select
             placeholder="Select Project"
             size="large"
-            onChange={(value) => {
-              setSelectedProject(value);
-              form.setFieldsValue({ task: null }); // reset task when project changes
-            }}
+            onChange={() => form.setFieldsValue({ task: null })}
           >
             {projects.map((project) => (
               <Option key={project.id} value={project.id}>
@@ -233,20 +223,21 @@ const TimeEntryModal = ({
           </Select>
         </Form.Item>
 
-        {/* TASK */}
+        {/* TASK (NO RESTRICTION) */}
         <Form.Item
           label="Task"
           name="task"
           rules={[{ required: true, message: "Please select task" }]}
         >
-          <Select placeholder="Select Task" size="large">
-            {tasks
-              .filter(task => task.projectId === selectedProject)
-              .map(task => (
-                <Option key={task.id} value={task.id}>
-                  {task.name}
-                </Option>
-              ))}
+          <Select
+            placeholder="Select Task"
+            size="large"
+          >
+            {tasks.map(task => (
+              <Option key={task.id} value={task.id}>
+                {task.name}
+              </Option>
+            ))}
           </Select>
         </Form.Item>
 
@@ -286,9 +277,9 @@ const TimeEntryModal = ({
                 minuteStep={15}
                 hideDisabledOptions
                 disabledHours={() =>
-                  Array.from({ length: 24 }, (_, i) => i).filter(
-                    (h) => h === 0 || h > 12
-                  )
+                  Array.from({ length: 24 }, (_, i) =>
+                    i === 0 || i > 12 ? i : null
+                  ).filter(Boolean)
                 }
               />
             </Form.Item>
@@ -300,10 +291,7 @@ const TimeEntryModal = ({
           name="description"
           rules={[{ required: true, message: "Please enter description" }]}
         >
-          <Input.TextArea
-            rows={4}
-            placeholder="Enter description..."
-          />
+          <Input.TextArea rows={4} placeholder="Enter description..." />
         </Form.Item>
 
         <Row justify="space-between" align="middle">
@@ -329,9 +317,15 @@ const TimeEntryModal = ({
             </Button>
           </Col>
         </Row>
+
       </Form>
     </Modal>
   );
 };
 
 export default TimeEntryModal;
+
+
+
+
+
