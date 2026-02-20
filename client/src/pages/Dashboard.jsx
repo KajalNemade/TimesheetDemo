@@ -29,8 +29,10 @@ import {
 
 import { db } from "../firebase";
 import TimeEntryModal from "../components/TimeEntryModal";
-import dayjs from "dayjs";
 import BulkTimeEntryModal from "../components/BulkTimeEntryModal";
+import SidebarLayout from "../layout/SidebarLayout"; // ✅ ADDED
+
+import dayjs from "dayjs";
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -269,80 +271,82 @@ const Dashboard = ({ user }) => {
   ========================= */
 
   return (
-    <Spin spinning={initialLoading} size="large">
-      <div className="dashboard-container">
+    <SidebarLayout> {/* ✅ WRAPPED HERE */}
+      <Spin spinning={initialLoading} size="large">
+        <div className="dashboard-container">
 
-        <div className="dashboard-toolbar">
-          <RangePicker
-            value={dateRange}
-            onChange={(range) => setDateRange(range)}
-            allowClear
+          <div className="dashboard-toolbar">
+            <RangePicker
+              value={dateRange}
+              onChange={(range) => setDateRange(range)}
+              allowClear
+            />
+
+            <Space size="middle">
+              <Button
+                icon={<CalendarOutlined />}
+                onClick={() => setOpenBulkModal(true)}
+              >
+                Bulk Time Entry
+              </Button>
+
+              <Select
+                placeholder="Group by"
+                className="group-select"
+                onChange={(value) => setGroupBy(value)}
+                allowClear
+              >
+                <Option value="project">Project</Option>
+                <Option value="date">Date</Option>
+              </Select>
+
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => {
+                  setEditingEntry(null);
+                  setOpenModal(true);
+                }}
+              >
+                Time Entry
+              </Button>
+            </Space>
+          </div>
+
+          <Table
+            columns={columns}
+            dataSource={processedData}
+            loading={!initialLoading && loading}
+            rowKey="id"
+            locale={{
+              emptyText: <Empty description="No time entries found" />
+            }}
+            pagination={{
+              pageSize: 10,
+              showSizeChanger: true,
+              pageSizeOptions: ["5", "10", "20", "50"],
+              position: ["bottomCenter"]
+            }}
           />
 
-          <Space size="middle">
-            <Button
-              icon={<CalendarOutlined />}
-              onClick={() => setOpenBulkModal(true)}
-            >
-              Bulk Time Entry
-            </Button>
+          <TimeEntryModal
+            open={openModal}
+            setOpen={setOpenModal}
+            user={user}
+            editingEntry={editingEntry}
+            onSuccess={fetchData}
+          />
 
-            <Select
-              placeholder="Group by"
-              className="group-select"
-              onChange={(value) => setGroupBy(value)}
-              allowClear
-            >
-              <Option value="project">Project</Option>
-              <Option value="date">Date</Option>
-            </Select>
+          <BulkTimeEntryModal
+            open={openBulkModal}
+            setOpen={setOpenBulkModal}
+            user={user}
+            onSuccess={fetchData}
+          />
 
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => {
-                setEditingEntry(null);
-                setOpenModal(true);
-              }}
-            >
-              Time Entry
-            </Button>
-          </Space>
         </div>
-
-        <Table
-          columns={columns}
-          dataSource={processedData}
-          loading={!initialLoading && loading}
-          rowKey="id"
-          locale={{
-            emptyText: <Empty description="No time entries found" />
-          }}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            pageSizeOptions: ["5", "10", "20", "50"],
-            position: ["bottomCenter"]
-          }}
-        />
-
-        <TimeEntryModal
-          open={openModal}
-          setOpen={setOpenModal}
-          user={user}
-          editingEntry={editingEntry}
-          onSuccess={fetchData}
-        />
-
-        <BulkTimeEntryModal
-          open={openBulkModal}
-          setOpen={setOpenBulkModal}
-          user={user}
-          onSuccess={fetchData}
-        />
-
-      </div>
-    </Spin>
+      </Spin>
+    </SidebarLayout>
   );
 };
 
