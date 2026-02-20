@@ -20,11 +20,11 @@ import {
 import {
   collection,
   getDocs,
-  updateDoc,          // ✅ UPDATED
+  updateDoc,
   doc,
   query,
   where,
-  serverTimestamp     // ✅ ADDED
+  serverTimestamp
 } from "firebase/firestore";
 
 import { db } from "../firebase";
@@ -82,7 +82,7 @@ const Dashboard = ({ user }) => {
       const q = query(
         collection(db, "timeEntries"),
         where("userId", "==", user.uid),
-        where("deleted", "==", false)   // ✅ SOFT DELETE FILTER
+        where("deleted", "==", false)
       );
 
       const snapshot = await getDocs(q);
@@ -289,7 +289,7 @@ const Dashboard = ({ user }) => {
 
             <Select
               placeholder="Group by"
-              style={{ width: 150 }}
+              className="group-select"
               onChange={(value) => setGroupBy(value)}
               allowClear
             >

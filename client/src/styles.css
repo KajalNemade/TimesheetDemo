@@ -1,6 +1,6 @@
-/* ===============================
+/* ======================================================
    GLOBAL
-================================= */
+====================================================== */
 
 body {
   font-family: 'Inter', sans-serif;
@@ -9,21 +9,53 @@ body {
   padding: 0;
 }
 
+/* ======================================================
+   ANT DESIGN OVERRIDES
+====================================================== */
+
+/* Buttons */
 .ant-btn {
   border-radius: 6px !important;
   font-weight: 500;
 }
 
-.ant-input,
-.ant-select-selector,
-.ant-picker {
-  border-radius: 6px !important;
+.ant-btn-primary {
+  background-color: #1d2440 !important;
+  border-color: #1d2440 !important;
 }
 
-/* ===============================
+.ant-btn-primary:hover {
+  background-color: #2a3360 !important;
+  border-color: #2a3360 !important;
+}
+
+/* Form Controls */
+.ant-input,
+.ant-input-password,
+.ant-select-selector,
+.ant-picker {
+  border-radius: 8px !important;
+}
+
+.ant-input,
+.ant-input-password {
+  height: 48px;
+  border: 1px solid #e5e7eb;
+  transition: 0.3s;
+}
+
+.ant-input:focus,
+.ant-input-password:focus,
+.ant-input-focused,
+.ant-input-password-focused {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
+}
+
+/* ======================================================
    LOGIN PAGE
-================================= */
-/* Full screen gradient background */
+====================================================== */
+
 .login-wrapper {
   height: 100vh;
   display: flex;
@@ -32,7 +64,6 @@ body {
   background: linear-gradient(135deg, #eef2ff, #f8fafc);
 }
 
-/* Glassmorphism card */
 .login-card {
   width: 480px;
   padding: 50px 45px;
@@ -48,13 +79,11 @@ body {
   transform: translateY(-3px);
 }
 
-/* Header */
 .login-header {
   text-align: center;
   margin-bottom: 35px;
 }
 
-/* Icon box */
 .icon-box {
   width: 70px;
   height: 70px;
@@ -72,36 +101,16 @@ body {
   color: white;
 }
 
-/* Title */
 .login-title {
   font-weight: 600;
   margin-bottom: 6px !important;
 }
 
-/* Subtitle */
 .login-subtitle {
   font-size: 15px;
   color: #6b7280;
 }
 
-/* Input styling */
-.ant-input,
-.ant-input-password {
-  height: 48px;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  transition: 0.3s;
-}
-
-.ant-input:focus,
-.ant-input-password:focus,
-.ant-input-focused,
-.ant-input-password-focused {
-  border-color: #6366f1 !important;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
-}
-
-/* Forgot password */
 .forgot-password {
   text-align: right;
   margin-bottom: 20px;
@@ -115,7 +124,6 @@ body {
   color: #3730a3;
 }
 
-/* Button */
 .login-btn {
   height: 50px;
   border-radius: 10px;
@@ -129,17 +137,13 @@ body {
   opacity: 0.9;
 }
 
-
-
-/* ===============================
+/* ======================================================
    DASHBOARD
-================================= */
+====================================================== */
 
 .dashboard-container {
   padding: 30px;
 }
-
-/* ===== Toolbar ===== */
 
 .dashboard-toolbar {
   background: #ffffff;
@@ -151,9 +155,13 @@ body {
   align-items: center;
 }
 
-/* ===============================
-   TABLE HEADER (DARK NAVY)
-================================= */
+.group-select {
+  width: 150px;
+}
+
+/* ======================================================
+   TABLE
+====================================================== */
 
 .ant-table-thead > tr > th {
   background-color: #1d2440 !important;
@@ -162,12 +170,14 @@ body {
   border-bottom: none !important;
 }
 
-/* Remove header divider line */
 .ant-table-thead > tr > th::before {
   display: none !important;
 }
 
-/* Make filter icon white */
+.ant-table-column-sorter {
+  color: #ffffff !important;
+}
+
 .ant-table-filter-trigger {
   color: #ffffff !important;
 }
@@ -176,37 +186,35 @@ body {
   color: #38bdf8 !important;
 }
 
-/* Sort icons white */
-.ant-table-column-sorter {
-  color: #ffffff !important;
-}
-
-/* Table body */
 .ant-table-tbody > tr > td {
   padding: 16px !important;
 }
 
-/* Row hover */
 .ant-table-tbody > tr:hover > td {
   background-color: #f5f9ff !important;
 }
 
-/* ===============================
+/* ======================================================
    STATUS
-================================= */
+====================================================== */
 
 .status-pending {
   color: #faad14;
   font-weight: 500;
 }
 
-/* ===============================
+.billable-icon {
+  color: #52c41a;
+  font-size: 16px;
+}
+
+/* ======================================================
    ACTION ICONS
-================================= */
+====================================================== */
 
 .action-icons {
   display: flex;
-  gap: 18px;   /* space between edit & delete */
+  gap: 18px;
   align-items: center;
 }
 
@@ -223,41 +231,46 @@ body {
   color: #ff4d4f;
 }
 
-.billable-icon {
-  color: #52c41a;
-  font-size: 16px;
+/* ======================================================
+   TIME ENTRY MODAL
+====================================================== */
+
+.modal-header {
+  border-bottom: 1px solid #e5e5e5;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
 }
 
-/* ===============================
-   PRIMARY BUTTON (Dark Blue)
-================================= */
-
-.ant-btn-primary {
-  background-color: #1d2440 !important;
-  border-color: #1d2440 !important;
+.modal-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
 }
 
-.ant-btn-primary:hover {
-  background-color: #2a3360 !important;
-  border-color: #2a3360 !important;
+.billable-wrapper {
+  display: flex;
+  align-items: center;
 }
 
-/* ===============================
-   FILTER ICON CLEAN
-================================= */
-
-.ant-table-filter-trigger {
-  color: #6b7280 !important;
+.billable-label {
+  margin-left: 10px;
 }
 
-.ant-table-filter-trigger:hover {
-  color: #1677ff !important;
+.modal-submit-btn {
+  min-width: 140px;
 }
 
+.full-width {
+  width: 100%;
+}
 
-/* ===============================
-   PAGINATION 
-================================= */
+.no-margin {
+  margin-bottom: 0 !important;
+}
+
+/* ======================================================
+   PAGINATION
+====================================================== */
 
 .server-pagination {
   display: flex;
@@ -266,3 +279,23 @@ body {
   margin-top: 20px;
 }
 
+
+/*bulk entry*/
+.bulk-row-wrapper {
+  padding: 15px;
+  background: #fafafa;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.remove-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.remove-icon {
+  font-size: 18px;
+  color: #ff4d4f;
+  cursor: pointer;
+}

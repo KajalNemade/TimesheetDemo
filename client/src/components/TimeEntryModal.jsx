@@ -166,7 +166,7 @@ const TimeEntryModal = ({
         description: values.description,
         billable: values.billable === true,
         status: "Pending",
-        deleted: false, // 👈 SOFT DELETE SUPPORT ADDED
+        deleted: false,
         updatedAt: serverTimestamp()
       };
 
@@ -221,14 +221,8 @@ const TimeEntryModal = ({
       destroyOnClose
       maskClosable={false}
     >
-      <div
-        style={{
-          borderBottom: "1px solid #e5e5e5",
-          marginBottom: 24,
-          paddingBottom: 16
-        }}
-      >
-        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600 }}>
+      <div className="modal-header">
+        <h2 className="modal-title">
           {editingEntry ? "Edit Time Entry" : "Time Entry"}
         </h2>
       </div>
@@ -288,7 +282,7 @@ const TimeEntryModal = ({
               rules={[{ required: true, message: "Please select date" }]}
             >
               <DatePicker
-                style={{ width: "100%" }}
+                className="full-width"
                 size="large"
                 format="DD MMM YYYY"
               />
@@ -302,7 +296,7 @@ const TimeEntryModal = ({
               rules={[{ required: true, message: "Please select duration" }]}
             >
               <TimePicker
-                style={{ width: "100%" }}
+                className="full-width"
                 size="large"
                 format="HH:mm"
                 minuteStep={15}
@@ -327,16 +321,16 @@ const TimeEntryModal = ({
 
         <Row justify="space-between" align="middle">
           <Col>
-            <div style={{ display: "flex", alignItems: "center" }}>
+            <div className="billable-wrapper">
               <Form.Item
                 name="billable"
                 valuePropName="checked"
                 initialValue={false}
-                style={{ marginBottom: 0 }}
+                className="no-margin"
               >
                 <Switch />
               </Form.Item>
-              <span style={{ marginLeft: 10 }}>Billable</span>
+              <span className="billable-label">Billable</span>
             </div>
           </Col>
 
@@ -347,7 +341,7 @@ const TimeEntryModal = ({
               size="large"
               loading={saving}
               disabled={saving}
-              style={{ minWidth: 140 }}
+              className="modal-submit-btn"
             >
               {editingEntry
                 ? saving ? "Updating..." : "Update"

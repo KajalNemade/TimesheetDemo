@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Modal,
   Form,
@@ -9,7 +9,8 @@ import {
   Button,
   Row,
   Col,
-  Space,
+  Switch,
+  Divider,
   message
 } from "antd";
 import {
@@ -19,7 +20,8 @@ import {
 import {
   collection,
   addDoc,
-  serverTimestamp
+  serverTimestamp,
+  getDocs
 } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -32,6 +34,48 @@ const BulkTimeEntryModal = ({
   onSuccess
 }) => {
   const [form] = Form.useForm();
+  const [projects, setProjects] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [saving, setSaving] = useState(false);
+
+  /* =========================
+     FETCH PROJECTS & TASKS
+  ========================= */
+
+  useEffect(() => {
+    if (!open) return;
+
+    const fetchDropdownData = async () => {
+      try {
+        const [projectSnap, taskSnap] = await Promise.all([
+          getDocs(collection(db, "projects")),
+          getDocs(collection(db, "tasks"))
+        ]);
+
+        setProjects(
+          projectSnap.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }))
+        );
+
+        setTasks(
+          taskSnap.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }))
+        );
+      } catch {
+        message.error("Failed to load dropdown data");
+      }
+    };
+
+    fetchDropdownData();
+  }, [open]);
+
+  /* =========================
+     SUBMIT
+  ========================= */
 
   const onFinish = async (values) => {
     if (!user) {
@@ -40,136 +84,173 @@ const BulkTimeEntryModal = ({
     }
 
     try {
+      setSaving(true);
+
       await Promise.all(
-        values.entries.map((entry) =>
-          addDoc(collection(db, "timeEntries"), {
+        values.entries.map((entry) => {
+          const hours = entry.logTime.hour();
+          const minutes = entry.logTime.minute();
+          const totalMinutes = hours * 60 + minutes;
+
+          return addDoc(collection(db, "timeEntries"), {
             userId: user.uid,
-            project: entry.project,
-            task: entry.task,
+            projectId: entry.project,
+            taskId: entry.task,
+            type: entry.type || "",
+            ticket: entry.ticket || "",
             date: entry.date.format("YYYY-MM-DD"),
-            logTime: entry.logTime.format("HH:mm"),
+            hours,
+            minutes,
+            totalMinutes,
             description: entry.description,
-            billable: false,
+            billable: entry.billable === true,
             status: "Pending",
-            createdAt: serverTimestamp()
-          })
-        )
+            deleted: false,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+        })
       );
 
-      message.success("Bulk time entries created");
+      message.success("Bulk time entries created successfully");
       form.resetFields();
       setOpen(false);
       onSuccess();
 
-    } catch (error) {
+    } catch {
       message.error("Failed to save bulk entries");
+    } finally {
+      setSaving(false);
     }
   };
+
+  /* =========================
+     UI
+  ========================= */
 
   return (
     <Modal
       open={open}
       footer={null}
-      width={900}
+      width={1100}
       onCancel={() => setOpen(false)}
       centered
       destroyOnClose
     >
-      <h2 style={{ marginBottom: 20 }}>
-        Bulk Time Entry
-      </h2>
+      <div className="modal-header">
+        <h2 className="modal-title">Bulk Time Entry</h2>
+      </div>
 
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={onFinish}
-      >
+      <Form form={form} layout="vertical" onFinish={onFinish}>
         <Form.List name="entries">
           {(fields, { add, remove }) => (
             <>
               {fields.map(({ key, name }) => (
-                <Row gutter={16} key={key} align="middle">
-                  <Col span={4}>
-                    <Form.Item
-                      name={[name, "project"]}
-                      rules={[{ required: true }]}
-                    >
-                      <Select placeholder="Project">
-                        <Option value="BFC new phase Team">
-                          BFC new phase Team
-                        </Option>
-                      </Select>
-                    </Form.Item>
-                  </Col>
+                <div key={key} className="bulk-row-wrapper">
 
-                  <Col span={4}>
-                    <Form.Item
-                      name={[name, "task"]}
-                      rules={[{ required: true }]}
-                    >
-                      <Select placeholder="Task">
-                        <Option value="Development">
-                          Development
-                        </Option>
-                        <Option value="Meeting">
-                          Meeting
-                        </Option>
-                        <Option value="Bug Fix">
-                          Bug Fix
-                        </Option>
-                      </Select>
-                    </Form.Item>
-                  </Col>
+                  <Row gutter={16}>
+                    <Col span={4}>
+                      <Form.Item
+                        label="Project"
+                        name={[name, "project"]}
+                        rules={[{ required: true }]}
+                      >
+                        <Select placeholder="Select Project">
+                          {projects.map(project => (
+                            <Option key={project.id} value={project.id}>
+                              {project.name}
+                            </Option>
+                          ))}
+                        </Select>
+                      </Form.Item>
+                    </Col>
 
-                  <Col span={4}>
-                    <Form.Item
-                      name={[name, "date"]}
-                      rules={[{ required: true }]}
-                    >
-                      <DatePicker style={{ width: "100%" }} />
-                    </Form.Item>
-                  </Col>
+                    <Col span={4}>
+                      <Form.Item
+                        label="Task"
+                        name={[name, "task"]}
+                        rules={[{ required: true }]}
+                      >
+                        <Select placeholder="Select Task">
+                          {tasks.map(task => (
+                            <Option key={task.id} value={task.id}>
+                              {task.name}
+                            </Option>
+                          ))}
+                        </Select>
+                      </Form.Item>
+                    </Col>
 
-                  <Col span={4}>
-                        <Form.Item
-                            name={[name, "logTime"]}
-                            rules={[{ required: true, message: "Please select duration" }]}
-                        >
-                            <TimePicker
-                            style={{ width: "100%" }}
-                            format="HH:mm"
-                            minuteStep={30}
-                            hideDisabledOptions
-                            disabledHours={() =>
-                                Array.from({ length: 24 }, (_, i) => i).filter(
-                                (h) => h === 0 || h > 12
-                                )
-                            }
-                            />
-                        </Form.Item>
-                        </Col>
+                    <Col span={3}>
+                      <Form.Item
+                        label="Date"
+                        name={[name, "date"]}
+                        rules={[{ required: true }]}
+                      >
+                        <DatePicker className="full-width" />
+                      </Form.Item>
+                    </Col>
 
+                    <Col span={3}>
+                      <Form.Item
+                        label="Duration"
+                        name={[name, "logTime"]}
+                        rules={[{ required: true }]}
+                      >
+                        <TimePicker
+                          className="full-width"
+                          format="HH:mm"
+                          minuteStep={15}
+                        />
+                      </Form.Item>
+                    </Col>
 
-                  <Col span={6}>
-                    <Form.Item
-                      name={[name, "description"]}
-                      rules={[{ required: true }]}
-                    >
-                      <Input placeholder="Description" />
-                    </Form.Item>
-                  </Col>
+                    <Col span={3}>
+                      <Form.Item
+                        label="Type"
+                        name={[name, "type"]}
+                      >
+                        <Input placeholder="Type" />
+                      </Form.Item>
+                    </Col>
 
-                  <Col span={2}>
-                    <MinusCircleOutlined
-                      onClick={() => remove(name)}
-                      style={{
-                        fontSize: 18,
-                        color: "red",
-                        cursor: "pointer"
-                      }}
-                    />
-                  </Col>
-                </Row>
+                    <Col span={3}>
+                      <Form.Item
+                        label="Ticket"
+                        name={[name, "ticket"]}
+                      >
+                        <Input placeholder="Ticket" />
+                      </Form.Item>
+                    </Col>
+
+                    <Col span={3}>
+                      <Form.Item
+                        label="Billable"
+                        name={[name, "billable"]}
+                        valuePropName="checked"
+                      >
+                        <Switch />
+                      </Form.Item>
+                    </Col>
+
+                    <Col span={1} className="remove-col">
+                      <MinusCircleOutlined
+                        className="remove-icon"
+                        onClick={() => remove(name)}
+                      />
+                    </Col>
+                  </Row>
+
+                  <Form.Item
+                    label="Description"
+                    name={[name, "description"]}
+                    rules={[{ required: true }]}
+                  >
+                    <Input.TextArea rows={2} />
+                  </Form.Item>
+
+                  <Divider />
+                </div>
               ))}
 
               <Form.Item>
@@ -179,7 +260,7 @@ const BulkTimeEntryModal = ({
                   icon={<PlusOutlined />}
                   block
                 >
-                  Add Row
+                  Add Another Entry
                 </Button>
               </Form.Item>
             </>
@@ -191,8 +272,9 @@ const BulkTimeEntryModal = ({
           htmlType="submit"
           size="large"
           block
+          loading={saving}
         >
-          Save All Entries
+          {saving ? "Saving..." : "Save All Entries"}
         </Button>
       </Form>
     </Modal>
